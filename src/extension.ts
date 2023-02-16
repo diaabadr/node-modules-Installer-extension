@@ -28,6 +28,24 @@ async function getDiagnostics(doc: vscode.TextDocument): Promise<vscode.Diagnost
 		// I should check all dependencies 
 		// testing
 		vscode.window.showInformationMessage('dependencies found');
+		let i=indexOfFirstDep;
+		while (i < textArr.length&&!new RegExp(/\s*}/).test(textArr[i])) {
+			// return arr with the dep name if it exists or null if it doesn't
+			const depArr=/\s*"(.*)"\s*:/.exec(textArr[i]);
+			if(!depArr){
+				// no match
+				i++;
+				continue;
+			}
+			// dependency found
+			const depName=depArr[1];
+			const folder = vscode.workspace.getWorkspaceFolder(doc.uri);
+			const nodeModulesPath = folder ? `{${folder.uri.fsPath}/node_modules/${depName}` : '';
+			// now i should search if this dependency installed or not
+
+
+			i++;
+		}
 	}
 
 	return diagnostics;
@@ -41,7 +59,6 @@ export async function activate(context: vscode.ExtensionContext) {
 	const handler = async (doc: vscode.TextDocument) => {
 		if (!doc.fileName.endsWith('package.json')) {
 			vscode.window.showInformationMessage(doc.fileName);
-
 			return;
 		}
 		vscode.window.showInformationMessage('package.json found');
@@ -50,7 +67,7 @@ export async function activate(context: vscode.ExtensionContext) {
 	};
 
 	const didOpen = vscode.workspace.onDidOpenTextDocument(doc => handler(doc));
-	// const didChange = vscode.workspace.onDidChangeTextDocument(event => handler(event.document));
+	const didChange = vscode.workspace.onDidChangeTextDocument(event => handler(event.document));
 
 
 }
