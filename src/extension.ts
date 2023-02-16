@@ -26,6 +26,8 @@ async function getDiagnostics(doc: vscode.TextDocument): Promise<vscode.Diagnost
 
 	if (indexOfFirstDep !== -1) {
 		// I should check all dependencies 
+		// testing
+		vscode.window.showInformationMessage('dependencies found');
 	}
 
 	return diagnostics;
@@ -38,15 +40,17 @@ export async function activate(context: vscode.ExtensionContext) {
 
 	const handler = async (doc: vscode.TextDocument) => {
 		if (!doc.fileName.endsWith('package.json')) {
+			vscode.window.showInformationMessage(doc.fileName);
+
 			return;
 		}
-
+		vscode.window.showInformationMessage('package.json found');
 		const diagnostics = await getDiagnostics(doc);
 		diagnosticCollection.set(doc.uri, diagnostics);
 	};
 
 	const didOpen = vscode.workspace.onDidOpenTextDocument(doc => handler(doc));
-	const didChange = vscode.workspace.onDidChangeTextDocument(event => handler(event.document));
+	// const didChange = vscode.workspace.onDidChangeTextDocument(event => handler(event.document));
 
 
 }
