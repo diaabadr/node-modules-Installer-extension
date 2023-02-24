@@ -12,29 +12,22 @@ async function doesDependencyInstalled(
   mainPackageJson: PackageJson,
   targetPackage: string
 ): Promise<boolean> {
-  const packageTypesName = `@types/${targetPackage}`;
-  if (mainPackageJson.devDependencies?.[packageTypesName]) {
-    // it's installed
-    return true;
-  }
   // check if the modules exist and it's index.d.ts file exists
   const file = await vscode.workspace.findFiles(
     `node_modules/${targetPackage}/index.d.ts`
   );
+  console.log(file);
   return file.length > 0;
 }
 
-async function getDiagnostics(
-  doc: vscode.TextDocument
-): Promise<vscode.Diagnostic[]> {
+async function installIfNotInstalled(doc: vscode.TextDocument): Promise<void> {
   const text = doc.getText();
-  const diagnostics = new Array<vscode.Diagnostic>();
 
   let packageJson: PackageJson;
   try {
     packageJson = JSON.parse(text);
   } catch (e) {
-    return diagnostics;
+    return;
   }
 
   const textArr: string[] = text.split(/\r\n|\n/);
@@ -64,44 +57,48 @@ async function getDiagnostics(
         "node_modules",
         depName
       );
-      const typesPackageName = `@types/${depName}`;
-
+      const typesPackageName = `${depName}`;
+      console.log(typesPackageName);
+      const diagnostic = await doesDependencyInstalled(
+        nodeModulesPath,
+        packageJson,
+        depName
+      );
+      console.log(diagnostic);
       // now i should search if this dependency installed or not
-      if (
-        !(await doesDependencyInstalled(nodeModulesPath, packageJson, depName))
-      ) {
+      if (!diagnostic) {
         const startIndex = textArr[i].indexOf(depName);
         const endIndex = startIndex + depName.length;
-        diagnostics.push({
-          severity: vscode.DiagnosticSeverity.Information,
-          message: `Install ${typesPackageName}`,
-          code: "no-types-installed",
-          source: "Types Installer",
-          range: new vscode.Range(i, startIndex, i, endIndex),
-        });
+
+        const shellExec = new vscode.ShellExecution(`npm install ${depName}`);
+        vscode.tasks.executeTask(
+          new vscode.Task(
+            { type: "types installer" },
+            vscode.TaskScope.Workspace,
+            "typesinstaller",
+            "types installer",
+            shellExec
+          )
+        );
+        console.log("task executed");
       }
 
       i++;
     }
   }
 
-  return diagnostics;
+  return;
 }
 
 // this method is called when your extension is activated
 // your extension is activated the very first time the command is executed
 export async function activate(context: vscode.ExtensionContext) {
-  const diagnosticCollection =
-    vscode.languages.createDiagnosticCollection("types-installer");
-
   const handler = async (doc: vscode.TextDocument) => {
     if (!doc.fileName.endsWith("package.json")) {
-      vscode.window.showInformationMessage(doc.fileName);
       return;
     }
     vscode.window.showInformationMessage("package.json found");
-    const diagnostics = await getDiagnostics(doc);
-    diagnosticCollection.set(doc.uri, diagnostics);
+    await installIfNotInstalled(doc);
   };
 
   const didOpen = vscode.workspace.onDidOpenTextDocument((doc) => handler(doc));
